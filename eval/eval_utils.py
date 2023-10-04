@@ -6,8 +6,8 @@ from omegaconf import DictConfig
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from mld.data.utils import mld_collate
-from mld.models.metrics import MMMetrics, TM2TMetrics
+from model.utils.utils import mld_collate
+from model.metrics import MMMetrics, TM2TMetrics
 from model.sdm.architectures import t2m_motionenc, t2m_textenc
 
 

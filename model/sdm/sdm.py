@@ -2,7 +2,7 @@ import inspect
 import numpy as np
 import torch
 
-from model.sdm.losses.mld import KLLoss
+from model.sdm.losses.kl import KLLoss
 
 import torch 
 
