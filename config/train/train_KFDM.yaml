@@ -1,0 +1,41 @@
+KFDM:
+  minbeta: 0.0001
+  maxbeta: 0.02
+  BETASCHEDULE: linear
+  DIFFUSION_LIMIT: 1000
+  architecture: trans_dec
+  keyframe: uniform
+  keyframe_freq: 0.1
+  TRM:
+    d_model: 512
+    d_k: 64
+    d_ffn: 2048 
+    nhead: 8
+    nstack: 8
+    dropout: 0.1
+    MAXLEN: 196
+    DIM_IN: 263
+  device: cuda
+
+TRAIN:
+  EPOCHS: 1000
+  lr: 0.00001
+  device: cuda
+DATALOADER:
+  NAME: humanml
+  batch_size: 32
+
+
+TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model']
+TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base']
+
+TEXTENCODER:
+  d_model: 768
+  NAME: RobertaModel
+  TOKENIZER: RobertaTokenizer
+  ENCODERPATH: 'pretraining/roberta-base'
+  TOKENIZERNAME: RobertaTokenizer  
+
+CHECKPOINTS: ./checkpoints/KFDMV2.pth
+LOG:
+  path: ./log/KFDMV2

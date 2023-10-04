@@ -1,0 +1,60 @@
+KFGAN:
+  device: cuda
+  d_input: 263
+  max_motion_len: 196
+  architecture: trans_dec
+  keyframe: uniform
+  keyframe_freq: 0.1
+  beta0: 0.002
+  hidden_dim: 512
+
+  generator:
+    device: cuda
+    architecture: trans_dec
+    d_model: 512
+    nhead: 8
+    nlayer: 8
+    d_ffn: 2048
+    dropout: 0.1
+    text_dim: 768
+    d_sample: 512
+    d_input: 263
+    batch_first: True
+
+
+  discriminator:
+    device: cuda
+    architecture: trans_enc
+    d_model: 512
+    nhead: 8
+    nlayer: 4
+    d_ffn: 2048
+    dropout: 0.1
+    text_dim: 768
+    d_input: 263
+    batch_first: True
+
+
+
+TRAIN:
+  EPOCHS: 1000
+  lR: 0.0001
+  device: cuda
+DATALOADER:
+  NAME: humanml
+  batch_size: 32
+
+
+TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model']
+TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base']
+
+TEXTENCODER:
+  d_model: 768
+  NAME: RobertaModel
+  TOKENIZER: RobertaTokenizer
+  ENCODERPATH: 'pretraining/roberta-base'
+  TOKENIZERNAME: RobertaTokenizer  
+
+CHECKPOINTS: ./checkpoints/KFGAN.pth
+LOG:
+  path: ./log/KFGAN.log

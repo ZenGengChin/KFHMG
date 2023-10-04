@@ -1,0 +1,218 @@
+EXNAME: newstart #1222_PELearn_VAE_MEncDec49_MdiffEnc49_bs64_clip_uncond75_01 # Experiment name
+DEBUG: False # Debug mode
+ACCELERATOR: 'gpu' # Devices optioncal: “cpu”, “gpu”, “tpu”, “ipu”, “hpu”, “mps, “auto”
+DEVICE: [0] # Index of gpus eg. [0] or [0,1,2,3]
+
+# Training configuration
+TRAIN:
+  #---------------------------------
+  STAGE: diffusion # stage "vae" or "diffusion", "vae_diffusion"
+  #---------------------------------
+  ABLATION:
+    PREDICT_EPSILON: True
+    SKIP_CONNECT: True
+    PE_TYPE: mld
+    DIFF_PE_TYPE: mld
+    MLP_DIST: False
+    VAE_TYPE: actor
+  DATASETS: ['humanml3d'] # Training datasets
+  NUM_WORKERS: 11 # Number of workers
+  BATCH_SIZE: 32 # Size of batches
+  START_EPOCH: 0 # Start epochMMOTIONENCODER
+  END_EPOCH: 6000 # End epoch
+  RESUME: '' # Resume training from this path
+  PRETRAINED_VAE: ''
+  OPTIM:
+    TYPE: AdamW # Optimizer type
+    LR: 8e-5 # Learning rate
+
+# Evaluating Configuration
+EVAL:
+  DATASETS: ['humanml3d'] # Evaluating datasets
+  BATCH_SIZE: 32 # Evaluating Batch size
+  SPLIT: test
+
+# Test Configuration
+TEST:
+  CHECKPOINTS: '' #'/media/zen/Windows/Users/20209/Desktop/PhD/Bench/mld/experiments/mld/1222_PELearn_VAE_MEncDec49_MdiffEnc49_bs64_clip_uncond75_01/checkpoints/epoch=999.ckpt' # Pretrained model path
+  DATASETS: ['humanml3d'] # training datasets
+  SPLIT: test
+  BATCH_SIZE: 32 # training Batch size
+  MEAN: False
+  NUM_SAMPLES: 1
+  FACT: 1
+  DIVERSITY_TIMES: 30
+  MM_NUM_TIMES: 20
+
+# Datasets Configuration
+DATASET:
+  JOINT_TYPE: 'humanml3d' # join type
+  NFEATS: 263
+  HUMANML3D:
+    UNIT_LEN: 4
+
+METRIC:
+  TYPE: ['TM2TMetrics'] # ['TemosMetric', 'TM2TMetrics']
+  FORCE_IN_METER: true
+  DIST_SYNC_ON_STEP: true
+# Losses Configuration
+LOSS:
+  TYPE: mld # Losses type
+  LAMBDA_JOINT: 0
+  LAMBDA_LATENT: 1.0e-5 # Lambda for latent Losses
+  LAMBDA_KL: 1.0e-4 # Lambda for kl Losses
+  LAMBDA_REC: 1.0 # Lambda for reconstruction Losses
+  LAMBDA_GEN: 1.0 # Lambda for text-motion generation losses
+  LAMBDA_CROSS: 1.0 # Lambda for reconstruction Losses
+  LAMBDA_CYCLE: 0.0 # Lambda for cycle Losses
+  LAMBDA_PRIOR: 0.0
+  DIST_SYNC_ON_STEP: False # Sync Losses on step when distributed trained
+
+# Model Configuration
+model:
+  mine: true
+  vae: true # whether vae model
+  model_type: mld # model type
+  condition: 'text'
+  latent_dim: [1, 256] # latent dimension
+  ff_size: 1024 #
+  num_layers: 9 # number of layers
+  num_head: 4 # number of head layers
+  droupout: 0.1 # dropout rate
+  activation: gelu # activation type
+  guidance_scale: 7.5 #
+  guidance_uncondp: 0.1 # 0.1 0.25
+
+  motion_vae:
+    target: mld.models.architectures.mld_vae.MldVae
+    params:
+      arch: encoder_decoder
+      ff_size: 1024
+      num_layers: 9
+      num_heads: 4
+      dropout: 0.1
+      normalize_before: false
+      activation: gelu
+      position_embedding: learned
+      latent_dim: ${model.latent_dim}
+      nfeats: 263
+      ablation: ${TRAIN.ABLATION}
+
+  text_encoder:
+    target: mld.models.architectures.mld_clip.MldTextEncoder
+    params:
+      finetune: false
+      last_hidden_state: false
+      latent_dim: ${model.latent_dim}
+      modelpath: ${model.clip_path}
+  noise_scheduler:
+    target: diffusers.DDPMScheduler
+    params:
+      num_train_timesteps: 1000
+      beta_start: 0.00085
+      beta_end: 0.012
+      beta_schedule: scaled_linear
+      variance_type: fixed_small
+      clip_sample: false
+  clip_path: ./pretraining/clip-vit-large-patch14
+
+  scheduler:
+    target: diffusers.DDIMScheduler
+    num_inference_timesteps: 50
+    eta: 0.0
+    params:
+      num_train_timesteps: 1000
+      beta_start: 0.00085
+      beta_end: 0.012
+      beta_schedule: scaled_linear
+      clip_sample: false
+      set_alpha_to_one: false
+      steps_offset: 1
+  denoiser:
+    target: mld.models.architectures.mld_denoiser.MldDenoiser
+    params:
+      text_encoded_dim: 768
+      ff_size: 1024
+      num_layers: 9
+      num_heads: 4
+      dropout: 0.1
+      normalize_before: false
+      activation: gelu
+      flip_sin_to_cos: true
+      return_intermediate_dec: false
+      position_embedding: learned
+      arch: trans_enc
+      freq_shift: 0
+      condition: ${model.condition}
+      latent_dim: ${model.latent_dim}
+      guidance_scale: ${model.guidance_scale}
+      guidance_uncondp: ${model.guidance_uncondp}
+      nfeats: 263
+      nclasses: 20
+      ablation: ${TRAIN.ABLATION}
+
+  t2m_textencoder:
+    dim_word: 300
+    dim_pos_ohot: 15
+    dim_text_hidden: 512
+    dim_coemb_hidden: 512
+    target: mld.models.architectures.t2m_textenc.TextEncoderBiGRUCo
+    params:
+      word_size: 300
+      pos_size: 15
+      hidden_size: 512
+      output_size: 512
+  t2m_motionencoder:
+    dim_move_hidden: 512
+    dim_move_latent: 512
+    dim_motion_hidden: 1024
+    dim_motion_latent: 512
+    target: mld.models.architectures.t2m_motionenc.MotionEncoder
+    params:
+      input_size: ${model.t2m_moveencoder.output_size}
+      hidden_size: 1024
+      output_size: 512  
+
+  t2m_moveencoder:
+    target: mld.models.architectures.t2m_textenc.MovementConvEncoder
+    params:
+      hidden_size: 512
+      output_size: 512
+  t2m_path: ./pretraining/t2m
+
+
+# Logger configuration
+LOGGER:
+  SACE_CHECKPOINT_EPOCH: 50
+  LOG_EVERY_STEPS: 1
+  VAL_EVERY_STEPS: 200
+  TENSORBOARD: True
+  WANDB:
+    PROJECT: null
+    OFFLINE: False
+    RESUME_ID: null
+
+
+keyframe_freq: 0.1
+keyframe_only: False
+d_input: 263
+max_motion_len: 196
+device: cuda
+
+VAE:
+  beta_kl: 0.0001
+  device: cuda
+  arch: enc_dec
+  TRM:
+    d_model: 256
+    nhead: 4
+    d_ffn: 1024
+    enclayer: 8
+    declayer: 8
+    dropout: 0.1
+    batch_first: False
+    activation: gelu
+
+DATALOADER:
+  NAME: humanml
+  batch_size: 32

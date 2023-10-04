@@ -1,0 +1,150 @@
+EXNAME: kfsdm77dn6latents2kl00005pkfskiprob
+
+stage: diffusion
+keyframe_freq: 0.1
+keyframe_only: True
+d_input: 263
+max_motion_len: 196
+latent_size: 2
+latent_dim: 256
+device: cuda
+text_mask_ratio: 0.1
+text_rep: pooler
+guidance_scale: 7.5
+guidance_uncondp: 0.1
+
+NoiseScheduler:
+  num_train_timesteps: 1000
+  num_inference_timesteps: 50
+  beta_start: 0.00085
+  beta_end: 0.012
+  beta_schedule: scaled_linear
+  clip_sample: False
+  set_alpha_to_one: False
+  steps_offset: 1
+  eta: 0.0
+
+VAE:
+  beta_kl: 0.0001
+  device: cuda
+  arch: enc_dec
+  TRM:
+    d_model: 256
+    nhead: 4
+    d_ffn: 1024
+    enclayer: 7
+    declayer: 7
+    dropout: 0.1
+    batch_first: True
+    activation: gelu
+Denoiser:
+  skip: True
+  flip_sin_to_cos: True
+  device: cuda
+  arch: trans_enc
+  TRM:
+    d_model: 256
+    nhead: 4
+    d_ffn: 1024
+    nlayer: 9
+    dropout: 0.1
+    batch_first: True
+    activation: gelu
+
+TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model','CLIPModel']
+TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base', 'clip-vit-large-patch14']
+
+TEXTENCODER:
+  d_model: 768
+  NAME: RobertaModel
+  TOKENIZER: RobertaTokenizer
+  ENCODERPATH: 'pretraining/roberta-base'
+  TOKENIZERNAME: RobertaTokenizer
+
+# SDMTEXTENCODER:
+#   d_model: 768
+#   NAME: RobertaModel
+#   TOKENIZER: RobertaTokenizer
+#   ENCODERPATH: 'pretraining/roberta-base'
+#   TOKENIZERNAME: RobertaTokenizer
+
+SDMTEXTENCODER:
+  d_model: 768
+  NAME: CLIPModel
+  TOKENIZER: CLIPProcessor
+  ENCODERPATH: ./pretraining/clip-vit-large-patch14
+  TOKENIZERNAME: CLIPProcessor
+
+IPMAE:
+  path: ./checkpoints/IPMAE_zero2.pth
+  device: cuda
+  d_input: 263
+  max_motion_len: 196
+  TRMDECODER:
+    d_model: 512
+    nhead: 8
+    d_ffn: 2048
+    nlayer: 8
+    dropout: 0.1
+    batch_first: True
+  MASK:
+    method: uniform
+    ratio: 0.90
+
+TRAIN:
+  batch_size: 32
+  lr: 0.00005
+  EPOCHS: 2000
+
+DATALOADER:
+  NAME: humanml
+  batch_size: 32
+  NFEATS: 263
+  UNIT_LEN: 4
+
+
+
+ABLATION:
+  VAE_TYPE: actor
+  VAE_ARCH: encoder_decoder
+  PE_TYPE: mld
+  DIFF_PE_TYPE: mld
+  SKIP_CONNECT: True
+  MLP_DIST: false
+  IS_DIST: false
+  PREDICT_EPSILON: True
+
+model:
+  t2m_textencoder:
+    dim_word: 300
+    dim_pos_ohot: 15
+    dim_text_hidden: 512
+    dim_coemb_hidden: 512
+    target: mld.models.architectures.t2m_textenc.TextEncoderBiGRUCo
+    params:
+      word_size: 300
+      pos_size: 15
+      hidden_size: 512
+      output_size: 512
+  t2m_motionencoder:
+    dim_move_hidden: 512
+    dim_move_latent: 512
+    dim_motion_hidden: 1024
+    dim_motion_latent: 512
+    target: mld.models.architectures.t2m_motionenc.MotionEncoder
+    params:
+      input_size: ${model.t2m_moveencoder.output_size}
+      hidden_size: 1024
+      output_size: 512  
+
+  t2m_moveencoder:
+    target: mld.models.architectures.t2m_textenc.MovementConvEncoder
+    params:
+      hidden_size: 512
+      output_size: 512
+  t2m_path: ./pretraining/t2m
+
+METRIC:
+  TYPE: ['TM2TMetrics'] # ['TemosMetric', 'TM2TMetrics']
+  FORCE_IN_METER: true
+  DIST_SYNC_ON_STEP: true

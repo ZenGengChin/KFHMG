@@ -1,0 +1,40 @@
+EXNAME: kfqvaecd512nbc1024nh8dm512df2048nl4robbeta01mu01
+
+KFQVAE:
+  max_motion_len: 196
+  device: cuda
+  code_dim: 512
+  nb_code: 1024
+  mu: 0.995
+  architecture: trans_enc
+  d_input: 263
+  keyframe_freq: 0.1
+  keyframe_only: True
+  beta: 0.1
+  TRM:
+    d_model: 512
+    nhead: 8
+    d_ffn: 2048
+    nlayer: 4
+    batch_first: True
+    dropout: 0.1
+  lambda_commit: 0.1
+
+TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model']
+TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base']
+
+TEXTENCODER:
+  d_model: 768
+  NAME: RobertaModel
+  TOKENIZER: RobertaTokenizer
+  ENCODERPATH: 'pretraining/roberta-base'
+  TOKENIZERNAME: RobertaTokenizer
+
+DATALOADER:
+  NAME: humanml
+  batch_size: 32
+
+TRAIN:
+  batch_size: 32
+  lr: 0.00005
+  EPOCHS: 800

@@ -1,0 +1,51 @@
+KFVAE:
+  device: cuda
+  d_input: 263
+  max_motion_len: 196
+  architecture: trans_enc
+  keyframe: uniform
+  keyframe_freq: 0.10
+  beta0: 0.002
+  hidden_dim: 100
+
+  TRMENCODER:
+    d_model: 512
+    nhead: 8
+    d_ffn: 2048
+    enc_nlayer: 3
+    dec_nlayer: 6
+    dropout: 0.1
+    batch_first: True
+
+  TRMDECODER:
+    d_model: 512
+    nhead: 8
+    d_ffn: 2048
+    nlayer_enc: 1
+    nlayer_dec: 6
+    dropout: 0.1
+    batch_first: True
+
+
+TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model', 'CLIPModel']
+TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base','clip-vit-base-patch16']
+
+TEXTENCODER:
+  d_model: 512
+  NAME: CLIPModel
+  TOKENIZER: CLIPProcessor
+  ENCODERPATH: ./pretraining/clip-vit-base-patch16
+  TOKENIZERNAME: CLIPProcessor
+
+TRAIN:
+  EPOCHS: 300
+  lr: 0.0001
+  device: cuda
+DATALOADER:
+  NAME: humanml
+  batch_size: 32
+
+CHECKPOINTS: ./checkpoints/KFVAECLIPADD36.pth
+LOG:
+  path: ./log/KFVAECLIPADD
+

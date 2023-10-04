@@ -1,0 +1,37 @@
+IPMAE:
+  device: cuda
+  d_input: 263
+  max_motion_len: 196
+  TRMDECODER:
+    d_model: 512
+    nhead: 8
+    d_ffn: 2048
+    nlayer: 8
+    dropout: 0.1
+    batch_first: True
+  MASK:
+    method: uniform
+    ratio: 0.90
+
+TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model']
+TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base']
+
+TEXTENCODER:
+  d_model: 768
+  NAME: RobertaModel
+  TOKENIZER: RobertaTokenizer
+  ENCODERPATH: 'pretraining/roberta-base'
+  TOKENIZERNAME: RobertaTokenizer  
+
+TRAIN:
+  EPOCHS: 100
+  lr: 0.00001
+  device: cuda
+DATALOADER:
+  NAME: humanml
+  batch_size: 32
+
+CHECKPOINTS: ./checkpoints/IPMAE_10l.pth
+LOG:
+  path: ./log/ipmae_10l
+
