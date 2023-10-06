@@ -26,7 +26,6 @@ class T2MEvaluator:
         self.eval_dataset = eval_dataset
         self.model = model
         self.is_mm = False
-        self.stage = self.cfg.stage
         
         self.eval_loader = DataLoader(
             dataset=self.eval_dataset,

@@ -10,6 +10,11 @@ from transformers import RobertaModel, RobertaTokenizer
 from transformers import T5Model, T5Tokenizer
 from transformers import ElectraModel, ElectraTokenizer
 
+# from model.sdm.constraints import SequenceSmoother
+
+
+# global_smoother = SequenceSmoother(input_size=263, kernel_size=1).cuda()
+
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_seq_len):
         super(PositionalEncoding, self).__init__()
@@ -119,6 +124,7 @@ class InterpolateMAE(nn.Module):
         # This code is used to check whether successful masked by zero the X
         X_zeros = tween_mask[0::self.nhead, 0, :].squeeze(-1)
         X_ = X.clone()
+        #X_ += torch.randn_like(X_) * 0.05
         X_[X_zeros] = 0
         X_[~padding_mask] = 0
         # torch.set_printoptions(profile='full')
@@ -136,7 +142,11 @@ class InterpolateMAE(nn.Module):
             tgt_key_padding_mask= ~padding_mask, 
             memory_key_padding_mask= text_padding_mask
         )
-        return self.MotionOutProj(output)
+        
+        result = self.MotionOutProj(output)
+        # result = global_smoother.forward(result)
+        
+        return result
     
     def compute_loss(self, 
                      X:Tensor, 
