@@ -775,7 +775,7 @@ class HumanML3D(data.Dataset):
         if mode == 'text_only':
             self.t2m_dataset = TextOnlyDataset(self.opt, self.mean, self.std, self.split_file)
         else:
-            self.w_vectorizer = WordVectorizer(pjoin(abs_base_path, 'glove'), 'our_vab')
+            self.w_vectorizer = WordVectorizer(pjoin(abs_base_path, 'pretraining','glove'), 'our_vab')
             self.t2m_dataset = Text2MotionDatasetV2(self.opt, self.mean, self.std, self.split_file, self.w_vectorizer)
             self.num_actions = 1 # dummy placeholder
 
