@@ -263,3 +263,39 @@ def get_root_idx(joinstype):
 
 #     joints = joints_mmm[indexes]
 #     return joints
+
+from utils.pose_utils import recover_from_ric, recover_from_rot
+
+
+import torch
+import numpy
+
+from torch import Tensor
+
+class MotionConverter(object):
+    def __init__(self, cfg) -> None:
+        self.data_name = cfg.DATALOADER.NAME
+        self.device = cfg.device
+        self.njoints = 22 if self.data_name == 'humanml' else 21
+        
+        if self.data_name == 'humanml':
+            self.feats_mean = Tensor(numpy.load('dataset/t2m_mean.npy')).to(self.device)
+            self.feats_std = Tensor(numpy.load('dataset/t2m_std.npy')).to(self.device)
+        elif self.data_name == 'kit':
+            self.feats_mean = Tensor(numpy.load('dataset/kit_mean.npy'))
+            self.feats_std = Tensor(numpy.load('dataset/kit_std.npy'))
+        
+        
+    
+    def feats2joints(self, motions:Tensor, lengths)->Tensor:
+        """ convert redundant features to joints xyz position
+        Args:
+            motions (Tensor): [B, L, ] with padding 0 in cuda
+
+        Returns:
+            Tensor: [B, L, 22, 3]
+        """
+        motions_desc = motions * self.feats_std + self.feats_mean
+        return recover_from_ric(motions_desc, self.njoints)
+        
+        

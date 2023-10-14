@@ -103,9 +103,9 @@ class SDM(nn.Module):
         if self.keyframe_only:
             feats_rst = self.vae.pad_keyframes(feats_rst)
             feats_rst = self.interpolator.forward(
-                X=feats_rst,
-                text_cond=text,
-                lengths=lengths
+                feats_rst,
+                text,
+                lengths
             )
         return feats_rst
 

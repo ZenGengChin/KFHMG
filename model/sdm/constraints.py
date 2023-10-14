@@ -1,29 +1,53 @@
 import torch 
 
 from torch import nn, Tensor
+from model.utils.joints import MotionConverter
 
 class MotionConstraints(nn.Module):
     def __init__(self,
-                 data_name:str = 'humanml',
-                 lambda_vel:float = 0,
-                 lambda_foot:float = 0) -> None:
+                 cfg) -> None:
         super().__init__()
-        self.data_name = data_name
-        self.lambda_vel = lambda_vel
-        self.lambda_foot = lambda_foot
-        self.njoints = 263 if self.data_name == 'humanml' else 251
+        self.data_name = cfg.DATALOADER.NAME
+        if self.data_name not in ['humanml', 'kit']:
+            raise TypeError
         
-        self.vel_loss = nn.MSELoss()
-        self.foot_loss = nn.MSELoss()
+        self.lambda_vel = cfg.lambda_vel
+        self.lambda_foot = cfg.lambda_foot
+        self.lambda_joint = cfg.lambda_joint
+        self.lambda_bone_len = cfg.lambda_bone_len
+        self.njoints = 22 if self.data_name == 'humanml' else 21
         
-    def forward(self, motions:Tensor, motion_ref:Tensor):        
+        self.vel_loss = nn.SmoothL1Loss()
+        self.foot_loss = nn.SmoothL1Loss()
+        self.joint_loss = nn.SmoothL1Loss()
+        self.bone_loss = nn.SmoothL1Loss()
+        
+        self.motion_converter = MotionConverter(cfg=cfg)
+        
+    def forward(self, motions:Tensor, motions_ref:Tensor):        
         if self.lambda_vel != 0:
             pass
-        
         if self.lambda_foot != 0:
             pass
-        
-        
+        if self.lambda_joint != 0:
+            pass
+        if self.lambda_bone_len != 0:
+            pass
+    
+    def get_bone_length(self, motions: Tensor, motions_ref: Tensor):
+        if self.data_name == 'humanml':
+            B, L, _ = motions.shape
+            local_joint_idx = range(4, 4+(self.njoints-1)*3)
+            local_joints = motions[:,:,local_joint_idx].reshape((B,L,self.njoints-1,3))
+            local_joints_ref = motions_ref[:,:,local_joint_idx].reshape(
+                (B,L,self.njoints-1,3))
+            
+            
+        elif self.data_name == 'kit':
+            pass
+        else:
+            raise TypeError
+
 
 import torch
 import torch.nn.functional as F

@@ -1,7 +1,6 @@
 EXNAME: ipmae8lunirate10clipconres
 
 IPMAE:
-  path: ./checkpoints/IPMAE_10l.pth
   arch: trans_enc
   device: cuda
   d_input: 263
@@ -42,6 +41,8 @@ DATALOADER:
   batch_size: 32
   NFEATS: 263
   UNIT_LEN: 4
+  mean_path: 
+
 device: cuda
 
 

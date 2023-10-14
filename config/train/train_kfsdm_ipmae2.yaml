@@ -1,4 +1,4 @@
-EXNAME: kfsdm77dn6latents2kl00005pkfskip
+EXNAME: kfsdm77dn6latents2kl00005pkfpara
 
 stage: diffusion
 keyframe_freq: 0.1
@@ -12,6 +12,11 @@ text_mask_ratio: 0.1
 text_rep: pooler
 guidance_scale: 7.5
 guidance_uncondp: 0.1
+
+lambda_vel: 0.1
+lambda_foot: 0.1
+lambda_joint: 0.1
+lambda_bone_len: 0.1
 
 NoiseScheduler:
   num_train_timesteps: 1000
@@ -38,7 +43,7 @@ VAE:
     batch_first: True
     activation: gelu
 Denoiser:
-  skip: True # ['no', 'True', 'condres']
+  skip: parallel # ['no', 'True', 'condres', 'parallel']
   flip_sin_to_cos: True
   device: cuda
   arch: trans_enc
@@ -51,8 +56,20 @@ Denoiser:
     batch_first: True
     activation: gelu
 
+  ParaTRM:
+    d_model: 256
+    nhead: 4
+    d_ffn: 1024
+    nselflayer: 2
+    ncrosslayer: 4
+    dropout: 0.1
+    batch_first: True
+    activation: relu
+    concat: trunc # linear or trunc
+
 TEXTENCODERLIST: ['RobertaModel', 'ElectraModel', 'T5Model','CLIPModel']
 TEXTENCODERMODELLIST: ['roberta-base', 'google/electra-base-discriminator','t5-base', 'clip-vit-large-patch14']
+
 
 TEXTENCODER:
   d_model: 768
@@ -61,13 +78,6 @@ TEXTENCODER:
   ENCODERPATH: 'pretraining/roberta-base'
   TOKENIZERNAME: RobertaTokenizer
 
-# SDMTEXTENCODER:
-#   d_model: 768
-#   NAME: RobertaModel
-#   TOKENIZER: RobertaTokenizer
-#   ENCODERPATH: 'pretraining/roberta-base'
-#   TOKENIZERNAME: RobertaTokenizer
-
 SDMTEXTENCODER:
   d_model: 768
   NAME: CLIPModel
@@ -75,8 +85,11 @@ SDMTEXTENCODER:
   ENCODERPATH: ./pretraining/clip-vit-large-patch14
   TOKENIZERNAME: CLIPProcessor
 
+
+
 IPMAE:
-  path: ./checkpoints/IPMAE_zero2.pth
+  arch: trans_enc
+  path: checkpoints/IPMAE_zero2.pth
   device: cuda
   d_input: 263
   max_motion_len: 196

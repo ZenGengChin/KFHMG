@@ -4,6 +4,25 @@ from torch import nn, Tensor
 from model.sdm.embeddings import PositionalEncoding, TimestepEmbedding, Timesteps
 from model.sdm.operator.cross_attention import SkipTransformerEncoder, SkipTransformerDecoder
 from model.sdm.operator.cross_attention import TransformerEncoderLayer, TransformerDecoderLayer
+from model.chmg.ctrm import CondResTransformerEncoder
+from model.chmg.ctrm import ParallelTransformer
+import torch.nn.functional as F
+
+
+class MLP(nn.Module):
+    """ Very simple multi-layer perceptron (also called FFN)"""
+
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
+        super().__init__()
+        self.num_layers = num_layers
+        h = [hidden_dim] * (num_layers - 1)
+        self.layers = nn.ModuleList(nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim]))
+
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+        return x
+
 
 class KFSDMDenoiser(nn.Module):
     def __init__(self, cfg):
@@ -40,8 +59,12 @@ class KFSDMDenoiser(nn.Module):
         self.time_embedding = TimestepEmbedding(cfg.SDMTEXTENCODER.d_model,
                                                     self.latent_dim).to(self.device)
         
+        self.normlayer = nn.LayerNorm(self.d_model).to(self.device)
+        
+        self.MLPLayer = MLP(self.d_model, self.d_model*4, self.d_model, 3).to(self.device)
+        
         # Main model
-        if self.skip:
+        if self.skip == True:
             if self.arch == 'trans_enc':
                 self.TRMDenoiserLayer = TransformerEncoderLayer(
                     d_model=self.d_model,
@@ -70,7 +93,37 @@ class KFSDMDenoiser(nn.Module):
                 ).to(self.device)
             else: 
                 raise NotImplementedError
-        else:
+        elif self.skip == 'condres':
+            # condres is only valid for transformer encoder
+            self.TRMDenoiserLayer = nn.TransformerEncoderLayer(
+                d_model=self.d_model,
+                nhead=self.nhead,
+                dim_feedforward=cfg.Denoiser.TRM.d_ffn,
+                dropout=cfg.Denoiser.TRM.dropout,
+                device=self.device,
+                batch_first=cfg.Denoiser.TRM.batch_first
+            )
+            self.TRMDenoiser = CondResTransformerEncoder(
+                encoder_layer=self.TRMDenoiserLayer,
+                num_layers=cfg.Denoiser.TRM.nlayer
+            )
+            
+        elif self.skip == 'parallel':
+            # parallel transformer for denoiser
+            self.TRMDenoiser = ParallelTransformer(
+                d_model=cfg.Denoiser.ParaTRM.d_model,
+                nhead=cfg.Denoiser.ParaTRM.nhead,
+                d_ffn=cfg.Denoiser.ParaTRM.d_ffn,
+                nselflayer=cfg.Denoiser.ParaTRM.nselflayer,
+                ncrosslayer=cfg.Denoiser.ParaTRM.ncrosslayer,
+                dropout=cfg.Denoiser.ParaTRM.dropout,
+                batch_first=cfg.Denoiser.ParaTRM.batch_first,
+                activation=cfg.Denoiser.ParaTRM.activation,
+                concat=cfg.Denoiser.ParaTRM.concat,
+                device=cfg.device
+            )
+                
+        elif self.skip == 'no':
             if self.arch == 'trans_enc':
                 self.TRMDenoiserLayer = nn.TransformerEncoderLayer(
                     d_model=self.d_model,
@@ -102,6 +155,9 @@ class KFSDMDenoiser(nn.Module):
             else: 
                 raise NotImplementedError
         
+        else:
+            raise NotImplementedError
+        
         # No TextEncoder to be added.
         
     def forward(self, 
@@ -116,7 +172,7 @@ class KFSDMDenoiser(nn.Module):
             text_last_hidden (Tensor): B, Lt, Et (768)
             lengths (Tensor): long [B]
         Returns:
-            noise or latent
+            noise or latent [B, 4, 256]
         """
         #latents = self.input_proj(latents)
         assert self.d_model == self.latent_dim # important
@@ -138,7 +194,7 @@ class KFSDMDenoiser(nn.Module):
         condition_emb = torch.cat([time_emb, text_emb],1)
         
         
-        if self.skip:
+        if self.skip == True:
             if self.arch == 'trans_enc':
                 src = torch.cat([latents, condition_emb], 1)
                 src = self.tgt_pe(src)
@@ -155,8 +211,24 @@ class KFSDMDenoiser(nn.Module):
                     tgt=latents, memory=condition_emb
                 )
                 output = output.permute(1,0,2)
+        elif self.skip == 'condres':
+            src = self.tgt_pe(latents)
+            condition_emb = self.mem_pe(condition_emb)
+            output = self.TRMDenoiser.forward(
+                source=src,
+                condition=condition_emb,
+            )[:,:latents.shape[1],:]
+            output = self.MLPLayer(output)
+            
+        elif self.skip == 'parallel':
+            latents = self.tgt_pe(latents)
+            condition_emb = self.mem_pe(condition_emb)
+            output = self.TRMDenoiser.forward(
+                left=latents,
+                right=condition_emb
+            )
         
-        else:
+        elif self.skip == 'no':
             if self.arch == 'trans_enc':
                 src = torch.cat([latents, condition_emb], 1)
                 src = self.tgt_pe(src)
@@ -168,4 +240,7 @@ class KFSDMDenoiser(nn.Module):
                 output = self.TRMDenoiser.forward(
                     tgt=latents, memory=condition_emb
                 )
+        else:
+            raise NotImplementedError
+        
         return output
